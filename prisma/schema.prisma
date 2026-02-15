@@ -1,0 +1,275 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model User {
+  id              String    @id @default(cuid())
+  name            String?
+  email           String?   @unique
+  emailVerified   DateTime?
+  image           String?
+  password        String?
+  phone           String?
+  location        String?
+  bio             String?
+  publicKey       String?   @db.Text
+  privateKeyEnc   String?   @db.Text
+  contactPrefs    Json?     @default("{\"email\": true, \"phone\": false, \"messages\": true}")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  accounts        Account[]
+  sessions        Session[]
+  cars            Car[]
+  likes           Like[]
+  sentMessages    Message[]      @relation("SentMessages")
+  receivedMessages Message[]     @relation("ReceivedMessages")
+  messageThreads  ThreadParticipant[]
+  filterPresets   FilterPreset[]
+  recentlyViewed  RecentlyViewed[]
+  reports         Report[]       @relation("ReportedBy")
+  reportsAgainst  Report[]       @relation("ReportedUser")
+
+  @@index([email])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Car {
+  id          String      @id @default(cuid())
+  userId      String
+  make        String
+  model       String
+  year        Int
+  price       Float
+  mileage     Int
+  location    String
+  latitude    Float?
+  longitude   Float?
+  description String      @db.Text
+  condition   CarCondition
+  status      CarStatus   @default(ACTIVE)
+  features    String[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  viewCount   Int         @default(0)
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  images      CarImage[]
+  likes       Like[]
+  threads     MessageThread[]
+  recentViews RecentlyViewed[]
+  reports     Report[]
+  priceHistory PriceHistory[]
+
+  @@index([userId])
+  @@index([make, model])
+  @@index([price])
+  @@index([year])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model CarImage {
+  id        String   @id @default(cuid())
+  carId     String
+  url       String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  car       Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  @@index([carId])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  userId    String
+  carId     String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  car       Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, carId])
+  @@index([userId])
+  @@index([carId])
+}
+
+model MessageThread {
+  id          String   @id @default(cuid())
+  carId       String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  car         Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+  participants ThreadParticipant[]
+  messages    Message[]
+
+  @@index([carId])
+}
+
+model ThreadParticipant {
+  id          String   @id @default(cuid())
+  threadId    String
+  userId      String
+  lastReadAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  thread      MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id            String   @id @default(cuid())
+  threadId      String
+  senderId      String
+  receiverId    String
+  encryptedContent String @db.Text
+  nonce         String
+  createdAt     DateTime @default(now())
+
+  thread        MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender        User          @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver      User          @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([createdAt])
+}
+
+model FilterPreset {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  filters     Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model RecentlyViewed {
+  id        String   @id @default(cuid())
+  userId    String
+  carId     String
+  viewedAt  DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  car       Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, carId])
+  @@index([userId])
+  @@index([viewedAt])
+}
+
+model PriceHistory {
+  id        String   @id @default(cuid())
+  carId     String
+  price     Float
+  changedAt DateTime @default(now())
+
+  car       Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  @@index([carId])
+  @@index([changedAt])
+}
+
+model Report {
+  id          String       @id @default(cuid())
+  carId       String?
+  reporterId  String
+  reportedUserId String?
+  reason      ReportReason
+  description String?      @db.Text
+  status      ReportStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  resolvedAt  DateTime?
+
+  car         Car?         @relation(fields: [carId], references: [id], onDelete: SetNull)
+  reporter    User         @relation("ReportedBy", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser User?       @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: SetNull)
+
+  @@index([carId])
+  @@index([reporterId])
+  @@index([status])
+}
+
+enum CarCondition {
+  NEW
+  LIKE_NEW
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+}
+
+enum CarStatus {
+  ACTIVE
+  PENDING
+  SOLD
+  DELETED
+}
+
+enum ReportReason {
+  SPAM
+  SCAM
+  INAPPROPRIATE
+  WRONG_INFO
+  DUPLICATE
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
