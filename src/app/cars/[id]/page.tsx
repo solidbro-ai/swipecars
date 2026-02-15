@@ -61,6 +61,9 @@ export default async function CarDetailPage({ params }: Props) {
           publicKey: true,
         },
       },
+      likes: {
+        select: { id: true },
+      },
       priceHistory: {
         orderBy: { changedAt: 'desc' },
         take: 5,

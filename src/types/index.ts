@@ -8,7 +8,7 @@ export type CarWithImages = Car & {
 export type CarWithDetails = Car & {
   images: CarImage[]
   user: Pick<User, 'id' | 'name' | 'image' | 'email' | 'phone' | 'location' | 'publicKey'>
-  likes: Like[]
+  likes?: { id: string }[]
   _count?: {
     likes: number
   }
